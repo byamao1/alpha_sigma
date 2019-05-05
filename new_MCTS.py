@@ -10,15 +10,21 @@ num2char = {0: "a", 1: "b", 2: "c", 3: "d", 4: "e", 5: "f", 6: "g", 7: "h", 8: "
 
 distrib_calculater = utils.distribution_calculater(utils.board_size)
 
+
 class edge:
     def __init__(self, action, parent_node, priorP):
-        self.action = action
-        self.counter = 1.0
+        """
+        self.action_value 指的是backpropagation的胜率。如果为0.0，说明没有backpropagation过
+        :param action:
+        :param parent_node:
+        :param priorP:
+        """
+        self.action = action    # 该 edge 的落子
+        self.counter = 1.0      # 该 edge 被探索过的次数
         self.parent_node = parent_node
-        self.priorP = priorP
-        self.child_node = None # self.search_and_get_child_node()
-
-        self.action_value = 0.0
+        self.priorP = priorP    # 神经网络计算出的先验概率
+        self.child_node = None  # self.search_and_get_child_node()
+        self.action_value = 0.0 # 探索过的胜利的次数
 
     def backup(self, v):  # back propagation
         self.action_value += v
@@ -26,7 +32,11 @@ class edge:
         self.parent_node.backup(-v)
 
     def get_child(self):
+        """
+        当该 edge的child_node为None时，说明需要继续往下探索（expand），所以返回True
+        """
         if self.child_node is None:
+            # 如果该 edge 还没有子节点，则生成其对应的子节点
             self.counter += 1
             self.child_node = node(self, -self.parent_node.node_player)
             return self.child_node, True
@@ -35,11 +45,13 @@ class edge:
             return self.child_node, False
 
     def UCB_value(self):  # 计算当前的UCB value
+        # self.action_value 为0.0，说明还没有backpropagation过
         if self.action_value:
             Q = self.action_value / self.counter
         else:
             Q = 0
         return Q + utils.Cpuct * self.priorP * np.sqrt(self.parent_node.counter) / (1 + self.counter)
+
 
 class node:
     def __init__(self, parent, player):
@@ -57,18 +69,17 @@ class node:
         return child_node
 
     def eval_or_not(self):
-        return len(self.child)==0
+        return len(self.child) == 0
 
     def backup(self, v):  # back propagation
         self.counter += 1
         if self.parent:
             self.parent.backup(v)
 
-    def get_distribution(self, train=True): ## used to get the step distribution of current
+    def get_distribution(self, train=True):  ## used to get the step distribution of current
         for key in self.child.keys():
             distrib_calculater.push(key, self.child[key].counter)
         return distrib_calculater.get(train=train)
-
 
     def UCB_sim(self):  # 用于根据UCB公式选取node
         UCB_max = -sys.maxsize
@@ -77,6 +88,7 @@ class node:
             if self.child[key].UCB_value() > UCB_max:
                 UCB_max_key = key
                 UCB_max = self.child[key].UCB_value()
+        # 注意 self.child[key] 是edge，因此需要调用 get_child() 获取实际的子节点
         this_node, expand = self.child[UCB_max_key].get_child()
         return this_node, expand, self.child[UCB_max_key].action
 
@@ -111,13 +123,19 @@ class MCTS:
             self.simulate_game.simulate_reset(self.game_process.current_board_state(True))
             state = self.simulate_game.current_board_state()
             while game_continue and not expand:
+                # expansion部分。（通过本节点是否有子节点，来检测是否被探测过）
                 if this_node.eval_or_not():
-                    state_prob, _ = self.NN.eval(utils.transfer_to_input(state, self.simulate_game.which_player(), self.board_size))
+                    # 返回所有点（即使该点已经下了）的概率。返回的state_prob是1✖64的张量
+                    state_prob, _ = self.NN.eval(
+                        utils.transfer_to_input(state, self.simulate_game.which_player(), self.board_size))
+                    # 根据现在棋局state，返回有效落子点
                     valid_move = utils.valid_move(state)
                     eval_counter += 1
+                    # 根据有效落子点，筛选state_prob
                     for move in valid_move:
-                        this_node.add_child(action=move, priorP=state_prob[0, move[0]*self.board_size + move[1]])
+                        this_node.add_child(action=move, priorP=state_prob[0, move[0] * self.board_size + move[1]])
 
+                # 根据UCB公式计算action、是否停止expand
                 this_node, expand, action = this_node.UCB_sim()
                 game_continue, state = self.simulate_game.step(action)
                 step_per_simulate += 1
@@ -125,7 +143,8 @@ class MCTS:
             if not game_continue:
                 this_node.backup(1)
             elif expand:
-                _, state_v = self.NN.eval(utils.transfer_to_input(state, self.simulate_game.which_player(), self.board_size))
+                _, state_v = self.NN.eval(
+                    utils.transfer_to_input(state, self.simulate_game.which_player(), self.board_size))
                 this_node.backup(state_v)
         return eval_counter / self.s_per_step, step_per_simulate / self.s_per_step
 
@@ -142,19 +161,23 @@ class MCTS:
             action, distribution = self.current_node.get_distribution(train=train)
             game_continue, state = self.game_process.step(utils.str_to_move(action))
             self.current_node = self.MCTS_step(action)
-            game_record.append({"distribution": distribution, "action":action})
+            game_record.append({"distribution": distribution, "action": action})
             end_time1 = int(time.time())
-            print("step:{},cost:{}s, total time:{}:{} Avg eval:{}, Aver step:{}".format(step, end_time1-begin_time1, int((end_time1 - begin_time)/60),
-                                                    (end_time1 - begin_time) % 60, avg_eval, avg_s_per_step), end="\r")
+            print("step:{},cost:{}s, total time:{}:{} Avg eval:{}, Aver step:{}".format(step, end_time1 - begin_time1,
+                                                                                        int((
+                                                                                                    end_time1 - begin_time) / 60),
+                                                                                        (end_time1 - begin_time) % 60,
+                                                                                        avg_eval, avg_s_per_step),
+                  end="\r")
             total_eval += avg_eval
             total_step += avg_s_per_step
             step += 1
         self.renew()
         end_time = int(time.time())
-        min = int((end_time - begin_time)/60)
+        min = int((end_time - begin_time) / 60)
         second = (end_time - begin_time) % 60
         print("In last game, we cost {}:{}".format(min, second), end="\n")
-        return game_record, total_eval/step, total_step/step
+        return game_record, total_eval / step, total_step / step
 
     def interact_game_init(self):
         self.renew()
