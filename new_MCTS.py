@@ -201,3 +201,4 @@ class MCTS:
             game_continue, state = self.game_process.step(utils.str_to_move(action))
             self.current_node = self.MCTS_step(action)
         return state, game_continue
+
