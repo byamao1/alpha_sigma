@@ -31,7 +31,7 @@ def main():
         record_file_label = True
     if oppo:
         try:
-            Net = torch.load(oppo)
+            Net = torch.load(oppo, map_location='cpu')
             tree = MCTS(board_size=board_size, neural_network=Net)
         except:
             raise ValueError("The parameter oppo must be a pretrained model")

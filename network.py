@@ -192,10 +192,10 @@ class neuralnetwork:
 
     def eval(self, state):
         self.model.eval()
-        if self.use_cuda:
-            state = torch.from_numpy(state).unsqueeze(0).double().cuda()
-        else:
-            state = torch.from_numpy(state).unsqueeze(0).double()
+        # if self.use_cuda:
+        #     state = torch.from_numpy(state).unsqueeze(0).double().cuda()
+        # else:
+        state = torch.from_numpy(state).unsqueeze(0).double()
         with torch.no_grad():
             prob, value = self.model(state)
         return F.softmax(prob, dim=1), value
