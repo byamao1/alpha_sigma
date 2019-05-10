@@ -122,8 +122,9 @@ class MCTS:
             this_node = self.current_node
             self.simulate_game.simulate_reset(self.game_process.current_board_state(True))
             state = self.simulate_game.current_board_state()
+            # selection阶段
             while game_continue and not expand:
-                # expansion部分。（通过本节点是否有子节点，来检测是否被探测过）
+                # 给this_node增加子节点。如果已被检测过(有子节点）,则跳过
                 if this_node.eval_or_not():
                     # 返回所有点（即使该点已经下了）的概率。返回的state_prob是1✖64的张量
                     state_prob, _ = self.NN.eval(
@@ -131,20 +132,23 @@ class MCTS:
                     # 根据现在棋局state，返回有效落子点
                     valid_move = utils.valid_move(state)
                     eval_counter += 1
-                    # 根据有效落子点，筛选state_prob
+                    # 根据有效落子点，筛选state_prob，给this_node增加子节点
                     for move in valid_move:
                         this_node.add_child(action=move, priorP=state_prob[0, move[0] * self.board_size + move[1]])
 
-                # 根据UCB公式计算action、是否停止expand
+                # 根据UCB公式计算action、返回的expand决定下面的expansion部分是否进行
                 this_node, expand, action = this_node.UCB_sim()
                 game_continue, state = self.simulate_game.step(action)
                 step_per_simulate += 1
 
             if not game_continue:
+                # 如果游戏停止，直接 backup阶段
                 this_node.backup(1)
             elif expand:
+                # expansion阶段。（这里并没有探测到终局，只探测一层就返回）
                 _, state_v = self.NN.eval(
                     utils.transfer_to_input(state, self.simulate_game.which_player(), self.board_size))
+                # backup阶段
                 this_node.backup(state_v)
         return eval_counter / self.s_per_step, step_per_simulate / self.s_per_step
 
