@@ -206,7 +206,7 @@ class MCTS:
         else:
             # 模拟落子比较耗时
             _, _ = self.simulation()
-            # 然后就是计算机选择落子
+            # 然后就是计算机根据模拟落子的结果选择本次落子（这是基于了多步模拟之后的一个好的落子）
             action, distribution = self.current_node.get_distribution(train=False)
             game_continue, state = self.game_process.step(utils.str_to_move(action))
             self.current_node = self.MCTS_step(action)
