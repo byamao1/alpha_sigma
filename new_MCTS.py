@@ -117,14 +117,16 @@ class MCTS:
 
     def simulation(self):  # simulation的程序
         eval_counter, step_per_simulate = 0, 0
+        # 通过 self.s_per_step控制探测未知节点的深度
         for _ in range(self.s_per_step):
             expand, game_continue = False, True
             this_node = self.current_node
             self.simulate_game.simulate_reset(self.game_process.current_board_state(True))
             state = self.simulate_game.current_board_state()
             # selection阶段
+            # 之所以用循环是要一直探测到未被探测过的节点为止(expand为true)，这样就进入expansion阶段
             while game_continue and not expand:
-                # 给this_node增加子节点。如果已被检测过(有子节点）,则跳过
+                # 给this_node补子edge。如果已被检测过(有子edge）,则跳过
                 if this_node.eval_or_not():
                     # 返回所有点（即使该点已经下了）的概率。返回的state_prob是1✖64的张量
                     state_prob, _ = self.NN.eval(
@@ -132,12 +134,14 @@ class MCTS:
                     # 根据现在棋局state，返回有效落子点
                     valid_move = utils.valid_move(state)
                     eval_counter += 1
-                    # 根据有效落子点，筛选state_prob，给this_node增加子节点
+                    # 根据有效落子点，筛选state_prob，给this_node增加子edge
                     for move in valid_move:
                         this_node.add_child(action=move, priorP=state_prob[0, move[0] * self.board_size + move[1]])
 
-                # 根据UCB公式计算action、返回的expand决定下面的expansion部分是否进行
+                # 根据UCB公式向下选择一层：计算下一步的action、更新this_node、以及该node是否有子node（expand）
+                # 返回的expand决定是继续selection还是expansion
                 this_node, expand, action = this_node.UCB_sim()
+                # 模拟计算下一步的action执行后，游戏是否结束
                 game_continue, state = self.simulate_game.step(action)
                 step_per_simulate += 1
 
@@ -200,7 +204,9 @@ class MCTS:
         if not game_continue:
             pass
         else:
+            # 模拟落子比较耗时
             _, _ = self.simulation()
+            # 然后就是计算机选择落子
             action, distribution = self.current_node.get_distribution(train=False)
             game_continue, state = self.game_process.step(utils.str_to_move(action))
             self.current_node = self.MCTS_step(action)
