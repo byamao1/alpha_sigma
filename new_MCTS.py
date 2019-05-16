@@ -154,7 +154,7 @@ class MCTS:
                 # 如果游戏停止，直接 backup阶段
                 this_node.backup(1)
             elif expand:
-                # expansion阶段。（这里并没有探测到终局，只探测一层就返回）
+                # simulation阶段。（这里并没有探测到终局，只探测一层就返回）
                 _, state_v = self.NN.eval(
                     utils.transfer_to_input(state, self.simulate_game.which_player(), self.board_size))
                 # backup阶段
