@@ -128,7 +128,7 @@ class MCTS:
             this_node = self.current_node
             self.simulate_game.simulate_reset(self.game_process.current_board_state(True))
             state = self.simulate_game.current_board_state()
-            # selection阶段
+            # selection & expansion阶段
             # 之所以用循环是要一直探测到未被探测过的节点为止(expand为true)，这样就进入expansion阶段
             while game_continue and not expand:
                 # 给this_node补子edge。如果已被检测过(有子edge）,则跳过
