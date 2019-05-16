@@ -122,14 +122,14 @@ class MCTS:
 
     def simulation(self):  # simulation的程序
         eval_counter, step_per_simulate = 0, 0
-        # 通过 self.s_per_step控制探测未知节点的深度
+        # 通过 self.s_per_step控制探测次数
         for _ in range(self.s_per_step):
             expand, game_continue = False, True
-            this_node = self.current_node
+            this_node = self.current_node   # this_node是一次探测中，不断被更新
             self.simulate_game.simulate_reset(self.game_process.current_board_state(True))
             state = self.simulate_game.current_board_state()
             # selection & expansion阶段
-            # 之所以用循环是要一直探测到未被探测过的节点为止(expand为true)，这样就进入expansion阶段
+            # 之所以用循环是要一直探测到未被探测过的节点为止(expand为true)，这样就进入simulation阶段
             while game_continue and not expand:
                 # 给this_node补子edge。如果已被检测过(有子edge）,则跳过
                 if this_node.eval_or_not():
