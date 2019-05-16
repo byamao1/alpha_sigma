@@ -111,6 +111,11 @@ class MCTS:
         self.game_process.renew()
 
     def MCTS_step(self, action):
+        """
+        根据action找到node
+        :param action:
+        :return:
+        """
         next_node = self.current_node.get_child(action)
         next_node.parent = None
         return next_node
@@ -138,8 +143,8 @@ class MCTS:
                     for move in valid_move:
                         this_node.add_child(action=move, priorP=state_prob[0, move[0] * self.board_size + move[1]])
 
-                # 根据UCB公式向下选择一层：计算下一步的action、更新this_node、以及该node是否有子node（expand）
-                # 返回的expand决定是继续selection还是expansion
+                # 根据UCB公式向下选择一层：计算下一步的落子action、更新下一次循环的this_node、以及该node是否有子node（expand）
+                # 返回的expand代表了是否探索到未知node
                 this_node, expand, action = this_node.UCB_sim()
                 # 模拟计算下一步的action执行后，游戏是否结束
                 game_continue, state = self.simulate_game.step(action)
@@ -196,19 +201,34 @@ class MCTS:
         return state, game_continue
 
     def interact_game1(self, action):
+        """
+        将人的鼠标位置转换为落子
+        :param action:
+        :return:
+        """
         game_continue, state = self.game_process.step(action)
         return state, game_continue
 
     def interact_game2(self, action, game_continue, state):
+        """
+        电脑落子
+        :param action:
+        :param game_continue:
+        :param state:
+        :return:
+        """
+        # 根据人的落子，选择该落子的node
         self.current_node = self.MCTS_step(utils.move_to_str(action))
         if not game_continue:
             pass
         else:
             # 模拟落子比较耗时
             _, _ = self.simulation()
-            # 然后就是计算机根据模拟落子的结果选择本次落子（这是基于了多步模拟之后的一个好的落子）
+            # 然后就是计算机根据模拟落子的结果选择本次落子action（这是基于了多步模拟之后的一个好的落子）
             action, distribution = self.current_node.get_distribution(train=False)
+            # 落子到棋盘
             game_continue, state = self.game_process.step(utils.str_to_move(action))
+            # 更新 node （好像这步没用）
             self.current_node = self.MCTS_step(action)
         return state, game_continue
 
