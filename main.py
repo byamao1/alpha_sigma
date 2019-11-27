@@ -6,7 +6,9 @@ import os
 import matplotlib.pyplot as plt
 
 import torch
- #child node的action我似乎是写错了，每一个node的child之内对应的每一个child node之中都应该有一个action
+
+
+# child node的action我似乎是写错了，每一个node的child之内对应的每一个child node之中都应该有一个action
 
 def main(tree_file=None, pretrained_model=None, game_file_saved_dict="game_record_2"):
     if not os.path.exists(game_file_saved_dict):
@@ -14,7 +16,7 @@ def main(tree_file=None, pretrained_model=None, game_file_saved_dict="game_recor
     if pretrained_model:
         Net = torch.load(pretrained_model)
     else:
-        Net = nn(input_layers=3, board_size=utils.board_size, learning_rate=utils.learning_rate)
+        Net = nn(input_layers=3, board_size=utils.board_size, learning_rate=utils.learning_rate, use_cuda=False)
     stack = utils.random_stack()
     if tree_file:
         tree = utils.read_file(tree_file)
@@ -30,12 +32,17 @@ def main(tree_file=None, pretrained_model=None, game_file_saved_dict="game_recor
         else:
             print("game {} completed, white win, this game length is {}".format(game_time, len(game_record)))
         print("The average eval:{}, the average steps:{}".format(eval, steps))
-        utils.write_file(game_record, game_file_saved_dict + "/"+time.strftime("%Y%m%d_%H_%M_%S", time.localtime())+'_game_time:{}.pkl'.format(game_time))
+        utils.write_file(game_record, game_file_saved_dict + "/" + time.strftime("%Y%m%d_%H_%M_%S",
+                                                                                 time.localtime()) + '_game_time:{}.pkl'.format(
+            game_time))
+        # 产生训练数据
         train_data = utils.generate_training_data(game_record=game_record, board_size=utils.board_size)
         for i in range(len(train_data)):
             stack.push(train_data[i])
         my_loader = utils.generate_data_loader(stack)
+        # 保存至文件
         utils.write_file(my_loader, "debug_loader.pkl")
+        #
         if game_time % 100 == 0:
             for _ in range(5):
                 record.extend(Net.train(my_loader, game_time))
@@ -44,7 +51,7 @@ def main(tree_file=None, pretrained_model=None, game_file_saved_dict="game_recor
         if game_time % 200 == 0:
             torch.save(Net, "model_{}.pkl".format(game_time))
             test_game_record, _, _ = tree.game(train=False)
-            utils.write_file(test_game_record, game_file_saved_dict + "/"+'test_{}.pkl'.format(game_time))
+            utils.write_file(test_game_record, game_file_saved_dict + "/" + 'test_{}.pkl'.format(game_time))
             print("We finished a test game at {} game time".format(game_time))
         if game_time % 200 == 0:
             plt.figure()
@@ -56,6 +63,7 @@ def main(tree_file=None, pretrained_model=None, game_file_saved_dict="game_recor
             plt.close()
 
         game_time += 1
+
 
 main()
 print("here we are")
